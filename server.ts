@@ -36,10 +36,14 @@ async function startServer() {
   app.use('/api/user', userRouter);
 
   // Serve uploaded files from data/uploads
-  app.use('/uploads', (req, res, next) => {
-    console.log(`Serving upload: ${req.url}`);
-    next();
-  }, express.static(UPLOAD_ROOT));
+  app.use(
+    '/uploads',
+    (req, res, next) => {
+      console.log(`Serving upload: ${req.url}`);
+      next();
+    },
+    express.static(UPLOAD_ROOT, { fallthrough: false })
+  );
 
   // Global error handler
   app.use((err: any, req: any, res: any, next: any) => {

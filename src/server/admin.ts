@@ -59,6 +59,12 @@ const ensureUploadDir = () => {
   }
 };
 
+const toPublicUploadPath = (absoluteFilePath: string) => {
+  const relativePath = path.relative(UPLOAD_ROOT, absoluteFilePath);
+  const normalized = relativePath.split(path.sep).join('/');
+  return `/uploads/${normalized}`;
+};
+
 const persistDataUrlImage = (imageDataUrl: string, subDir?: string) => {
   const match = imageDataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
   if (!match) return null;
@@ -84,7 +90,7 @@ const persistDataUrlImage = (imageDataUrl: string, subDir?: string) => {
   const absolutePath = path.join(targetDir, filename);
   fs.writeFileSync(absolutePath, Buffer.from(base64Payload, 'base64'));
 
-  return subDir ? `/uploads/${subDir}/${filename}` : `/uploads/${filename}`;
+  return toPublicUploadPath(absolutePath);
 };
 
 // Middleware to check admin role
@@ -147,8 +153,8 @@ adminRouter.post('/upload', requireAdmin, (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Path should include the subfolder if it was created
-    const pdf_path = `/uploads/${id}/${req.file.filename}`;
+    // Use the real saved path instead of assuming a subfolder structure.
+    const pdf_path = toPublicUploadPath(req.file.path);
 
     try {
       db.prepare('INSERT INTO newspapers (id, title, publication_date, pdf_path, status) VALUES (?, ?, ?, ?, ?)')
@@ -268,11 +274,7 @@ adminRouter.post('/article-image', requireAdmin, (req: Request, res: Response) =
       return res.status(400).json({ error: 'No file uploaded' });
     }
     
-    const newspaperId = req.body.newspaper_id || req.query.newspaper_id;
-    const filePath = newspaperId 
-      ? `/uploads/${newspaperId}/${req.file.filename}`
-      : `/uploads/${req.file.filename}`;
-      
-    res.json({ image_path: filePath });
+    const image_path = toPublicUploadPath(req.file.path);
+    res.json({ image_path });
   });
 });
