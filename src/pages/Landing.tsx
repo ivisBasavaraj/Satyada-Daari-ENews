@@ -145,7 +145,7 @@ export default function Landing() {
 
       <footer className="bg-zinc-900 text-zinc-500 py-10 md:py-16 px-4">
         <div className="max-w-7xl mx-auto flex flex-col items-center text-center md:text-left md:items-start md:flex-row md:justify-between gap-8 md:gap-12">
-          <div className="font-serif text-2xl text-white font-bold">ಸತ್ಯದ ದಾರಿ</div>
+          <div className="font-serif text-2xl text-white font-bold">ರಾಯಚೂರು ಬೆಳಕು</div>
           <div className="flex flex-wrap justify-center gap-6 md:gap-8 text-sm font-medium">
             <Link to="/admin/login" className="hover:text-white transition-colors">ನಿರ್ವಾಹಕ ಪ್ರವೇಶ</Link>
             <a href="#" className="hover:text-white transition-colors">ನಮ್ಮ ಬಗ್ಗೆ</a>

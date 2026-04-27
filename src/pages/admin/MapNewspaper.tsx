@@ -2,12 +2,10 @@ import { useState, useRef, useEffect } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, Save, Check, Plus, Trash2, ArrowLeft, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, Trash2, ArrowLeft, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import PopupHeader from '@/components/PopupHeader';
-
-// Configure PDF worker
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface Article {
@@ -21,6 +19,18 @@ interface Article {
   height: number;
 }
 
+interface RegionRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+interface PdfDocumentLike {
+  numPages: number;
+  getPage: (pageNumber: number) => Promise<any>;
+}
+
 export default function MapNewspaper() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -29,15 +39,14 @@ export default function MapNewspaper() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
+  const [pdfDocument, setPdfDocument] = useState<PdfDocumentLike | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPos, setStartPos] = useState({ x: 0, y: 0 });
-  const [currentRect, setCurrentRect] = useState<{ x: number, y: number, w: number, h: number } | null>(null);
-  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentRect, setCurrentRect] = useState<RegionRect | null>(null);
+  const [isSavingArticle, setIsSavingArticle] = useState(false);
+  const [, setIsModalOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [pdfWidth, setPdfWidth] = useState(800);
-  
-  // Form state for new article
   const [formData, setFormData] = useState({ title: '', content: '' });
 
   const pdfWrapperRef = useRef<HTMLDivElement>(null);
@@ -81,8 +90,9 @@ export default function MapNewspaper() {
     }
   };
 
-  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-    setNumPages(numPages);
+  const onDocumentLoadSuccess = (pdf: PdfDocumentLike) => {
+    setNumPages(pdf.numPages);
+    setPdfDocument(pdf);
   };
 
   const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
@@ -104,6 +114,7 @@ export default function MapNewspaper() {
   };
 
   const handleStart = (e: React.MouseEvent | React.TouchEvent) => {
+    if (isSavingArticle) return;
     if ((e.target as HTMLElement).closest('.article-region')) return;
     
     // Prevent scrolling when drawing on mobile
@@ -136,16 +147,27 @@ export default function MapNewspaper() {
       setCurrentRect(null);
       return;
     }
-    setIsModalOpen(true);
+    void handleSaveArticle(currentRect);
   };
 
-  const handleSaveArticle = async () => {
-    if (!currentRect || !id) return;
+  const buildAutoArticleDetails = () => {
+    const pageArticleCount = articles.filter((article) => article.page_number === pageNumber).length + 1;
 
-    // Capture the cropped image from PDF
+    return {
+      title: `Page ${pageNumber} Article ${pageArticleCount}`,
+      content: `Mapped article region from page ${pageNumber}`,
+    };
+  };
+
+  const handleSaveArticle = async (region: RegionRect | null = currentRect) => {
+    if (!id || !region) return;
+
+    setIsSavingArticle(true);
+    const articleDetails = buildAutoArticleDetails();
+
     let image_path = null;
     try {
-      const canvas = await captureRegionImage();
+      const canvas = await captureRegionImage(region);
       if (canvas) {
         const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), 'image/png'));
         const formData = new FormData();
@@ -172,12 +194,12 @@ export default function MapNewspaper() {
     const newArticle = {
       newspaper_id: id,
       page_number: pageNumber,
-      title: formData.title,
-      content: formData.content,
-      x: currentRect.x,
-      y: currentRect.y,
-      width: currentRect.w,
-      height: currentRect.h,
+      title: articleDetails.title,
+      content: articleDetails.content,
+      x: region.x,
+      y: region.y,
+      width: region.w,
+      height: region.h,
       image_path,
     };
 
@@ -201,26 +223,26 @@ export default function MapNewspaper() {
       
       const saved = responseData;
       setArticles([...articles, { ...newArticle, id: saved.id }]);
-      setIsModalOpen(false);
       setCurrentRect(null);
-      setFormData({ title: '', content: '' });
       toast.success('Region mapped');
     } catch (error) {
+      setCurrentRect(null);
       toast.error('Error saving region');
+    } finally {
+      setIsSavingArticle(false);
     }
   };
 
-  const captureRegionImage = async (): Promise<HTMLCanvasElement | null> => {
-    if (!pdfWrapperRef.current || !currentRect) return null;
-    
+  const captureVisibleRegionImage = (region: RegionRect): HTMLCanvasElement | null => {
+    if (!pdfWrapperRef.current) return null;
+
     const pdfCanvas = pdfWrapperRef.current.querySelector('canvas');
     if (!pdfCanvas) return null;
 
-    const rect = pdfWrapperRef.current.getBoundingClientRect();
-    const x = (currentRect.x / 100) * pdfCanvas.width;
-    const y = (currentRect.y / 100) * pdfCanvas.height;
-    const w = (currentRect.w / 100) * pdfCanvas.width;
-    const h = (currentRect.h / 100) * pdfCanvas.height;
+    const x = (region.x / 100) * pdfCanvas.width;
+    const y = (region.y / 100) * pdfCanvas.height;
+    const w = (region.w / 100) * pdfCanvas.width;
+    const h = (region.h / 100) * pdfCanvas.height;
 
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(w));
@@ -232,6 +254,55 @@ export default function MapNewspaper() {
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(pdfCanvas, x, y, w, h, 0, 0, canvas.width, canvas.height);
     return canvas;
+  };
+
+  const captureRegionImage = async (region: RegionRect): Promise<HTMLCanvasElement | null> => {
+    if (!pdfDocument) return captureVisibleRegionImage(region);
+
+    try {
+      const pdfPage = await pdfDocument.getPage(pageNumber);
+      const baseViewport = pdfPage.getViewport({ scale: 1 });
+      const regionWidthRatio = Math.max(region.w / 100, 0.12);
+      const targetPageWidth = Math.min(5000, Math.max(2600, Math.round(1600 / regionWidthRatio)));
+      const renderScale = targetPageWidth / baseViewport.width;
+      const viewport = pdfPage.getViewport({ scale: renderScale });
+
+      const sourceCanvas = document.createElement('canvas');
+      sourceCanvas.width = Math.max(1, Math.ceil(viewport.width));
+      sourceCanvas.height = Math.max(1, Math.ceil(viewport.height));
+
+      const sourceContext = sourceCanvas.getContext('2d', { alpha: false });
+      if (!sourceContext) return captureVisibleRegionImage(region);
+
+      sourceContext.imageSmoothingEnabled = true;
+      sourceContext.imageSmoothingQuality = 'high';
+
+      await pdfPage.render({
+        canvasContext: sourceContext,
+        viewport,
+      }).promise;
+
+      const x = (region.x / 100) * sourceCanvas.width;
+      const y = (region.y / 100) * sourceCanvas.height;
+      const w = (region.w / 100) * sourceCanvas.width;
+      const h = (region.h / 100) * sourceCanvas.height;
+
+      const croppedCanvas = document.createElement('canvas');
+      croppedCanvas.width = Math.max(1, Math.round(w));
+      croppedCanvas.height = Math.max(1, Math.round(h));
+
+      const croppedContext = croppedCanvas.getContext('2d');
+      if (!croppedContext) return captureVisibleRegionImage(region);
+
+      croppedContext.imageSmoothingEnabled = true;
+      croppedContext.imageSmoothingQuality = 'high';
+      croppedContext.drawImage(sourceCanvas, x, y, w, h, 0, 0, croppedCanvas.width, croppedCanvas.height);
+
+      return croppedCanvas;
+    } catch (error) {
+      console.error('Failed high-resolution capture, falling back to visible canvas:', error);
+      return captureVisibleRegionImage(region);
+    }
   };
 
   const handleDeleteArticle = async (articleId: string) => {
@@ -413,6 +484,17 @@ export default function MapNewspaper() {
                         height: `${article.height}%`,
                       }}
                     >
+                      <button
+                        type="button"
+                        aria-label={`Delete ${article.title}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleDeleteArticle(article.id);
+                        }}
+                        className="absolute -top-3 -right-3 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-white shadow-md transition-opacity hover:bg-red-700 opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                      >
+                        <Trash2 size={12} />
+                      </button>
                       <div className="absolute -top-6 left-0 bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
                         {article.title}
                       </div>
@@ -457,7 +539,7 @@ export default function MapNewspaper() {
       </div>
 
       {/* Modal for adding metadata */}
-      {isModalOpen && (
+      {false && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200 overflow-hidden">
             <PopupHeader />

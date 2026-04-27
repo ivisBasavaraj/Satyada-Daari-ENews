@@ -17,7 +17,7 @@ export default function Logo() {
           if (parent) {
             const textLogo = document.createElement('div');
             textLogo.className = 'font-serif font-bold text-4xl tracking-tight text-zinc-900';
-            textLogo.innerText = 'ಸತ್ಯದ ದಾರಿ';
+            textLogo.innerText = 'ರಾಯಚೂರು ಬೆಳಕು';
             parent.appendChild(textLogo);
           }
         }}
