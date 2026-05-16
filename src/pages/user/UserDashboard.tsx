@@ -4,10 +4,8 @@ import { useAuth } from '@/context/AuthContext';
 import { Calendar, ArrowRight, Newspaper, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import Masthead from '@/components/Masthead';
-import { Document, Page, pdfjs } from 'react-pdf';
+import { Document, Page } from 'react-pdf';
 import { listPublishedNewspapers, type NewspaperSummary } from '@/lib/staticArchive';
-
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 export default function UserDashboard() {
   const [newspapers, setNewspapers] = useState<NewspaperSummary[]>([]);

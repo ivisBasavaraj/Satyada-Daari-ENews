@@ -4,9 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Plus, FileText, Calendar, Loader2, LogOut, Newspaper } from 'lucide-react';
 import { toast } from 'sonner';
 import Masthead from '@/components/Masthead';
-import { Document, Page, pdfjs } from 'react-pdf';
-
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+import { Document, Page } from 'react-pdf';
 
 export default function AdminDashboard() {
   const [newspapers, setNewspapers] = useState<any[]>([]);

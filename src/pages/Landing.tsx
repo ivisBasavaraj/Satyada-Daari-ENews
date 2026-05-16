@@ -1,19 +1,33 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Calendar, Newspaper } from 'lucide-react';
-import { Document, Page, pdfjs } from 'react-pdf';
+import { Document, Page } from 'react-pdf';
 import { toast } from 'sonner';
 import Masthead from '@/components/Masthead';
 import { listPublishedNewspapers, type NewspaperSummary } from '@/lib/staticArchive';
 
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
-
 export default function Landing() {
   const [newspapers, setNewspapers] = useState<NewspaperSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [previewWidth, setPreviewWidth] = useState(400);
 
   useEffect(() => {
     void fetchNewspapers();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const updatePreviewWidth = () => {
+      setPreviewWidth(window.innerWidth < 768 ? 250 : 400);
+    };
+
+    updatePreviewWidth();
+    window.addEventListener('resize', updatePreviewWidth);
+
+    return () => {
+      window.removeEventListener('resize', updatePreviewWidth);
+    };
   }, []);
 
   const fetchNewspapers = async () => {
@@ -95,7 +109,7 @@ export default function Landing() {
                   >
                     <Page
                       pageNumber={1}
-                      width={window.innerWidth < 768 ? 250 : 400}
+                      width={previewWidth}
                       renderTextLayer={false}
                       renderAnnotationLayer={false}
                       className="w-full grayscale group-hover:grayscale-0 transition-all duration-700"

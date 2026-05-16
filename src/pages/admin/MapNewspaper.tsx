@@ -1,12 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
-import { Document, Page, pdfjs } from 'react-pdf';
+import { Document, Page } from 'react-pdf';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, Check, Trash2, ArrowLeft, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import PopupHeader from '@/components/PopupHeader';
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface Article {
   id: string;

@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { Document, Page, pdfjs } from 'react-pdf';
+import { Document, Page } from 'react-pdf';
 import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { ArrowLeft, ChevronLeft, ChevronRight, Download, X, ZoomIn, ZoomOut } from 'lucide-react';
 import popupHeaderImage from '@/components/image.png';
 import { getPublishedNewspaperById, type Article, type NewspaperRecord } from '@/lib/staticArchive';
 
-pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+const getInitialPageWidth = () => {
+  if (typeof window === 'undefined') return 800;
+  return Math.max(280, window.innerWidth - 8);
+};
 
 export default function ReadNewspaper() {
   const { id } = useParams();
@@ -17,7 +20,7 @@ export default function ReadNewspaper() {
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [scale, setScale] = useState(1.0);
   const [imageZoom, setImageZoom] = useState(1);
-  const [pageWidth, setPageWidth] = useState(window.innerWidth > 0 ? window.innerWidth : 800);
+  const [pageWidth, setPageWidth] = useState(getInitialPageWidth);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
@@ -30,7 +33,7 @@ export default function ReadNewspaper() {
 
   useEffect(() => {
     const element = viewerRef.current;
-    if (!element) return;
+    if (!element || typeof window === 'undefined') return;
 
     const updateWidth = () => {
       const isMobile = window.innerWidth < 768;
@@ -41,12 +44,12 @@ export default function ReadNewspaper() {
     };
 
     updateWidth();
-    const observer = new ResizeObserver(updateWidth);
-    observer.observe(element);
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateWidth);
+    observer?.observe(element);
     window.addEventListener('resize', updateWidth);
 
     return () => {
-      observer.disconnect();
+      observer?.disconnect();
       window.removeEventListener('resize', updateWidth);
     };
   }, []);
